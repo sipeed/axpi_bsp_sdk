@@ -1,0 +1,24 @@
+#!/bin/sh
+
+rm -rf `find . -name "*.o"`
+rm -rf `find . -name "*.lo"`
+rm -rf `find . -name "*.plo"`
+rm -rf `find . -name "*.la"`
+rm -rf `find . -name "*.a"`
+
+export arm_prefix=arm-linux-gnueabi-
+CC=${arm_prefix}gcc \
+CXX=${arm_prefix}g++ \
+LD=${arm_prefix}ld \
+AS=${arm_prefix}as \
+AR=${arm_prefix}ar \
+STRIP=${arm_prefix}strip \
+NM=${arm_prefix}nm \
+RANLIB=${arm_prefix}ranlib \
+./configure  --prefix=$PWD/_install --build=i386-linux  --host=arm-linux-gnueabihf --target=arm-linux-gnueabihf \
+ --disable-option-checking --disable-FEATURE --disable-libkms --disable-intel --disable-radeon --disable-vc4 \
+ --disable-amdgpu --disable-nouveau --disable-vmwgfx --disable-freedreno --enable-cairo-tests=no
+
+make -j4
+
+

@@ -1,0 +1,28 @@
+#!/bin/sh
+
+rm -rf `find . -name "*.o"`
+rm -rf `find . -name "*.lo"`
+rm -rf `find . -name "*.plo"`
+rm -rf `find . -name "*.la"`
+rm -rf `find . -name "*.a"`
+
+export arm_prefix=arm-linux-gnueabihf-
+CC=${arm_prefix}gcc \
+CXX=${arm_prefix}g++ \
+LD=${arm_prefix}ld \
+AS=${arm_prefix}as \
+AR=${arm_prefix}ar \
+STRIP=${arm_prefix}strip \
+NM=${arm_prefix}nm \
+RANLIB=${arm_prefix}ranlib \
+./configure  --prefix=$PWD/_install --build=i386-linux  --host=arm-linux --target=arm-linux \
+ --enable-flatlf=no --enable-skinlf=no --enable-fonttimes=no  --enable-cursor=yes  --enable-savebitmap=no \
+ --enable-jpgsupport=no --enable-pngsupport=no --enable-menu=no --enable-mousecalibrate=no --enable-savescreen=no \
+ --enable-ctrltreeview=no --enable-ctrltreeview-rdr=no --enable-ctrlspinbox=no --enable-ctrlcoolbar=no --enable-ctrlanimation=no \
+ --enable-screensaver=no --enable-vbfsupport=no --enable-fontsserif=no --enable-fontcourier=no --enable-fontsystem=no --enable-complexscripts=no \
+ --enable-videodrm=no --enable-videopcxvfb=no --enable-ttfsupport=yes --enable-shared=no --enable-compositing=no --enable-incoreres=no --with-runmode=ths \
+ --enable-detaildebug=yes --enable-videoaichip=yes
+
+make -j4
+
+

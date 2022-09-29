@@ -1,0 +1,132 @@
+{
+	"panorama_enabled": "false",
+	"panorama_quality": 90,
+	"roi": {
+		"enable": "false",
+		"points": [
+			{
+				"x": 0.25,
+				"y": 0.25
+			},
+			{
+				"x": 0.75,
+				"y": 0.75
+			}
+		]
+	},
+	"item_setting_size": 5,
+	"item_setting": [
+		{
+			"object_category": "face",
+			"width": 0,
+			"height": 0,
+			"pose_blur": {
+				"pitch": 180,
+				"yaw": 180,
+				"roll": 180,
+				"blur": 0.9
+			}
+		},
+		{
+			"object_category": "body",
+			"width": 0,
+			"height": 0
+		},
+		{
+			"object_category": "cycle",
+			"width": 0,
+			"height": 0
+		},
+		{
+			"object_category": "vehicle",
+			"width": 0,
+			"height": 0
+		},
+		{
+			"object_category": "plate",
+			"width": 0,
+			"height": 0
+		}
+	],
+	"push_quality_filter_size": 5,
+	"push_quality_filter": [
+		{
+			"object_category": "face",
+			"width": 0,
+			"height": 0,
+			"pose_blur": {
+				"pitch": 180,
+				"yaw": 180,
+				"roll": 180,
+				"blur": 1.0
+			}
+		},
+		{
+			"object_category": "body",
+			"quality": 0
+		},
+		{
+			"object_category": "vehicle",
+			"quality": 0
+		},
+		{
+			"object_category": "cycle",
+			"quality": 0
+		},
+		{
+			"object_category": "plate",
+			"quality": 0
+		}
+	],
+	"push_strategy": {
+		"push_mode": "PUSH_MODE_BEST",
+		"interval_times": 2000,
+		"push_counts": 1,
+		"push_same_frame": "true"
+	},
+	"analyze_attribute_size": 1,
+	"analyze_attribute": [
+		"ANALYZE_ATTR_PLATE_ATTRIBUTE"
+	],
+	"push_bind_enabled": "true",
+	"detect_result_interface_enabled": "false",
+	"crop_encoder_qplevel": 90,
+	"max_track_size": {
+		"human": 3,
+		"vehicle": 3,
+		"cycle": 3
+	},
+	"object_filter_size": 5,
+	"object_filter": [
+		{
+			"object_category": "face",
+			"width": 0,
+			"height": 0,
+			"confidence": 0
+		},
+		{
+			"object_category": "body",
+			"width": 0,
+			"height": 0,
+			"confidence": 0
+		},
+		{
+			"object_category": "vehicle",
+			"width": 0,
+			"height": 0,
+			"confidence": 0
+		},
+		{
+			"object_category": "cycle",
+			"width": 0,
+			"height": 0,
+			"confidence": 0
+		},
+		{
+			"object_category": "plate",
+			"width": 0,
+			"height": 0,
+			"confidence": 0
+		}
+	]
+}

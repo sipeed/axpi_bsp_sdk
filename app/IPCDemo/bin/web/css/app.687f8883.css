@@ -1,0 +1,1 @@
+#app,body,html{height:100vh;margin:0;padding:0;min-width:1000px;min-height:600px}::-webkit-scrollbar-track{background:#fff;border-radius:0}::-webkit-scrollbar{-webkit-appearance:none;width:5px;height:5px}::-webkit-scrollbar-thumb{cursor:pointer;border-radius:0;background:rgba(0,0,0,.9);-webkit-transition:color .2s ease;transition:color .2s ease}

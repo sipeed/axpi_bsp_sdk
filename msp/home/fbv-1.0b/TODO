@@ -1,0 +1,23 @@
+switching off cursor (it's flashing in upper-left corner) => done
+support for multiple files =>done
+
+command-line switches: 
+no-clear => done
+interpolate-resize => done
+fast-resize =>done 
+slideshow <timeout in ms> =>done
+
+keymaps: (needed)
++	zoom in
+-	zoom out
+ *  	"fit to screen" zoom => done as a command line option
+<space>	next picture => done
+<-	previous picture => done
+cursors	panning => done
+
+
+'more normal' configure script :))))))) => DONE
+
+
+make it compile and work on Sparc - I need it ;) - added by piaskowy@irc.pl 
+

@@ -1,0 +1,29 @@
+html,
+body,
+#app {
+    height: calc(100vh);
+    margin: 0;
+    padding: 0;
+    min-width: 1000px;
+    min-height: 600px;
+}
+::-webkit-scrollbar-track
+{
+background: rgba(255, 255, 255, 1.0);
+border-radius: 0;
+}
+
+::-webkit-scrollbar
+{
+-webkit-appearance: none;
+width: 5px;
+height: 5px;
+}
+
+::-webkit-scrollbar-thumb
+{
+cursor: pointer;
+border-radius: 0px;
+background: rgba(0, 0, 0, 0.9);
+transition: color .2s ease;
+}

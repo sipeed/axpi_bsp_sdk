@@ -1,0 +1,139 @@
+{
+    "project": "AX620",
+    "version": "1.0",
+
+    "modules": [{
+            "type": "camera",
+            "instance": [{
+                    "id": 0,
+                    "frame_rate": 25,
+                    "sns_type": "2: GC4653",
+                    "sns_type": 2,
+                    "sns_mode": "1: AX_SNS_LINEAR_MODE; 2: AX_SNS_HDR_2X_MODE;",
+                    "sns_mode": 1,
+                    "run_mode": "0: NPU; 1: None NPU;",
+                    "run_mode": 0,
+                    "tuning_ctrl": "0: disable; 1: enable",
+                    "tuning_ctrl": 0,
+                    "tuning_port": 8082,
+                    "normal_mode_bin": "/opt/etc/gc4653_sdr_wnr2d.bin",
+                    "hotbalance_mode_bin": "/opt/etc/gc4653_sdr_wnr3d.bin"
+                },
+                {
+                    "id": 1,
+                    "frame_rate": 25,
+                    "sns_type": "2: GC4653",
+                    "sns_type": 2,
+                    "sns_mode": "1: AX_SNS_LINEAR_MODE; 2: AX_SNS_HDR_2X_MODE;",
+                    "sns_mode": 1,
+                    "run_mode": "0: NPU; 1: None NPU;",
+                    "run_mode": 0,
+                    "tuning_ctrl": "0: disable; 1: enable",
+                    "tuning_ctrl": 0,
+                    "tuning_port": 8082,
+                    "normal_mode_bin": "/opt/etc/gc4653_sdr_wnr2d.bin",
+                    "hotbalance_mode_bin": "/opt/etc/gc4653_sdr_wnr3d.bin"
+                }
+            ]
+        },
+        {
+            "type": "venc",
+            "encoder": "h264",
+            "instance": [{
+                    "id": 0,
+                    "rc": {
+                        "type": "CBR",
+                        "min_qp": 0,
+                        "max_qp": 51,
+                        "min_iqp": 0,
+                        "max_iqp": 51,
+                        "min_i_prop": 10,
+                        "max_i_prop": 40,
+                        "intra_qp_delta": -2
+                    },
+                    "bitrate": 4096,
+                    "fps": 25,
+                    "gop": 25
+                },
+                {
+                    "id": 1,
+                    "rc": {
+                        "type": "CBR",
+                        "min_qp": 0,
+                        "max_qp": 51,
+                        "min_iqp": 0,
+                        "max_iqp": 51,
+                        "min_i_prop": 10,
+                        "max_i_prop": 40,
+                        "intra_qp_delta": -2
+                    },
+                    "bitrate": 512,
+                    "fps": 25,
+                    "gop": 25
+                }
+            ]
+        },
+        {
+            "type": "jenc",
+            "instance": [{
+                    "id": 0,
+                    "qplevel": 90
+                },
+                {
+                    "id": 1,
+                    "qplevel": 90
+                }
+            ]
+        },
+        {
+            "type": "ai",
+            "instance": [{
+                    "id": 0,
+                    "width": 1280,
+                    "height": 720,
+                    "detect_fps": 6,
+                    "ai_fps": 5,
+                    "ives_fps": 1
+                }
+            ]
+        },
+        {
+            "type": "hotbalance",
+            "instance": {
+                "enable": true,
+                "balance_level": "0: HighBalance; 1: MidBalance;",
+                "balance_level": 1,
+                "median": 105,
+                "low": 90,
+                "gap": 0,
+                "camera": [{
+                        "id": 0,
+                        "sdr_only": true,
+                        "sns_fps": 12
+                    },
+                    {
+                        "id": 1,
+                        "sdr_only": true,
+                        "sns_fps": 12
+                    }
+                ],
+                "venc": [{
+                        "id": 0,
+                        "venc_fps": 12
+                    },
+                    {
+                        "id": 1,
+                        "venc_fps": 12
+                    }
+                ],
+                "ai": [{
+                        "id": 0,
+                        "detect_fps": 3,
+                        "ai_fps": 2,
+                        "ives_fps": 1
+                    }
+                ]
+            }
+        }
+    ]
+}

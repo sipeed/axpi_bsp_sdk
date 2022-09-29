@@ -1,0 +1,52 @@
+# clion debug directory
+cmake-build*
+.idea
+
+# Backup files.
+*~
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# MACOSX
+.DS_Store
+
+# IDE
+.vs
+.vscode
+
+# Python
+*.egg-info/
+__pycache__/
+
+
+# msp
+msp/out/bin/

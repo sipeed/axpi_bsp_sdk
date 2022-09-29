@@ -1,0 +1,6 @@
+abs_top_srcdir=../..
+LOCAL_INC=-I$(abs_top_srcdir)/src/control/
+
+include Makefile.am
+include ../../rules.make
+
