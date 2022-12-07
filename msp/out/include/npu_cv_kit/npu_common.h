@@ -124,7 +124,7 @@ typedef enum _AX_NPU_CV_Interp {
     AX_NPU_CV_NEAREST = 1
 } AX_NPU_CV_Interp;
 
-const AX_S32 PHY_MEM_ALIGN_SIZE = 128;
+static const AX_S32 PHY_MEM_ALIGN_SIZE = 128;
 
 #ifdef __cplusplus
 }
