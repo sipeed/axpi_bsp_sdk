@@ -1,0 +1,1316 @@
+From 50d9f6cad8807b56016c4e2a4ef6b93d19455d72 Mon Sep 17 00:00:00 2001
+From: junhuanchen <junhuanchen@qq.com>
+Date: Sat, 7 Jan 2023 13:14:06 +0800
+Subject: [PATCH] [m3axpi kernel with 480x854 rtl8723bs pcf8563 ]
+
+---
+ linux/Makefile                                |   9 +-
+ .../arch/arm/boot/dts/AX620_demo.dts          | 685 +++++++++++++++++-
+ .../arch/arm/boot/dts/axera_ax620x.dtsi       |   4 +-
+ .../arch/arm/configs/axera_AX620_defconfig    | 299 +++++++-
+ .../drivers/gpu/drm/panel/panel-simple.c      |  20 +
+ .../drivers/staging/rtl8723bs/Kconfig         |   2 +-
+ 6 files changed, 958 insertions(+), 61 deletions(-)
+
+diff --git a/linux/Makefile b/linux/Makefile
+index f7fb28b03..50df93bcd 100644
+--- a/linux/Makefile
++++ b/linux/Makefile
+@@ -10,7 +10,9 @@ include $(BUILD_PATH)/config.mak
+ .PHONY: all prepare linux
+ 
+ KERNEL_DIR  ?=  linux-4.19.125
+-ifeq ($(PROJECT), AX620_slave)
++ifeq ($(PROJECT), AX620_demo)
++	CONFIG ?= axera_AX620_defconfig
++else ifeq ($(PROJECT), AX620_slave)
+ 	CONFIG ?= axera_AX620_slave_defconfig
+ else ifeq ($(PROJECT), AX620_dashcam)
+ 	CONFIG ?= axera_AX620_dashcam_defconfig
+@@ -33,6 +35,11 @@ prepare:
+ 	@$(ECHO) -e $(GREEN) "first build prepare" $(DONE)
+ 	@$(MAKE) -C $(KERNEL_DIR)/ ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) $(CONFIG)
+ 
++menuconfig:
++	@$(ECHO)
++	@$(ECHO) -e $(GREEN) "menuconfig" $(DONE)
++	@$(MAKE) -C $(KERNEL_DIR)/ ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) menuconfig
++
+ linux:
+ 	@$(ECHO)
+ 	@$(ECHO) -e $(GREEN) "Making $@..." $(DONE)
+diff --git a/linux/linux-4.19.125/arch/arm/boot/dts/AX620_demo.dts b/linux/linux-4.19.125/arch/arm/boot/dts/AX620_demo.dts
+index 5d9c27fec..0a1acb8b4 100644
+--- a/linux/linux-4.19.125/arch/arm/boot/dts/AX620_demo.dts
++++ b/linux/linux-4.19.125/arch/arm/boot/dts/AX620_demo.dts
+@@ -236,12 +236,17 @@
+ 	sd-uhs-sdr12;
+ 	sd-uhs-sdr50;
+ 	sd-uhs-sdr104;
+-	no-sdio;
++	// no-sdio;
+ 	no-mmc;
+ 	disable-wp;
+ 	clocks = <&ap_clk AX620X_CLK_SDIO_M_CARD>;
+ 	clock-names = "cardclk";
+-	status = "disable";
++	status = "okay";
++
++	rtl8723bs: sdio_wifi@1 {
++		reg = <1>;
++	};
++
+ };
+ 
+ &sd2{
+@@ -277,6 +282,10 @@
+ };
+ 
+ &i2c_hs0 {
++	status = "disabled";
++};
++
++&i2c_hs1 {
+ 	status = "okay";
+ };
+ 
+@@ -303,8 +312,37 @@
+ 		int-gpio = <&port0a 31 0>; /* GPIO0_D7 */
+ 		bind-usb = "4800000.usb";
+ 	};
++
++	pcf8563: rtc@51 {
++		compatible = "nxp,pcf8563";
++		reg = <0x51>;
++	};
++};
++
++&spi1 {
++	status = "okay";
++	spidev@0 {
++		compatible = "spidev";
++		reg = <0>;
++		spi-max-frequency = <25000000>;
++	};
++};
++
++&dw_uart1 {
++	status = "okay";
++};
++
++&i2c2 {
++	status = "okay";
++};
++
++&i2c_hs1 {
++	status = "okay";
+ };
+ 
++&i2c_hs3 {
++	status = "okay";
++};
+ 
+ &dwgpio0 {
+ 	status = "okay";
+@@ -318,12 +356,16 @@
+ 	status = "okay";
+ };
+ 
+-&pwm0 {
+-	pin_sleep_setting = <0x049BC0FC 0x00060014>;
+-};
++// &pwm0 {
++// 	pin_sleep_setting = <0x049BC0FC 0x00060014>;
++// };
+ 
+ &crtc {
+-	vfb_configs = "1920x1080-32-2";
++	// vfb_configs = "480x360-32-2";
++	vfb_configs = "480x854-32-2";
++	// vfb_configs = "480x800-32-2";
++	// vfb_configs = "800x1280-32-2";
++	// vfb_configs = "1920x1080-32-2";
+ };
+ 
+ &dsi {
+@@ -331,32 +373,631 @@
+ 	enable-dsi = <0x1>;
+ };
+ 
++// &panel_dsi {
++// 	pwms = <&pwm0 0 4167>;
++// 	// reset-gpio-num = <27>;
++// 	reset-gpio = <&port0a 27 0>;
++// 	prepare-delay-ms = <0>;
++// 	unprepare-delay-ms = <0>;
++// 	enable-delay-ms = <0>;
++// 	disable-delay-ms = <0>;
++// 	reset-low-delay-ms = <20>;
++// 	reset-high-delay-ms = <100>;
++// 	dsi,format = <MIPI_DSI_FMT_RGB888>;
++// 	dsi,lanes = <2>;
++// 	dsi,flags = <(MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM)>;
++
++// 	panel-init-seq = [39 00 06 FF 77 01 00 00 10
++// 					  39 00 03 C0 63 00
++// 					  39 00 03 C1 11 02
++// 					  39 00 03 C2 31 08
++// 					  15 00 02 CC 10
++// 					  39 00 11 B0 40 01 46 0D 13 09 05 09 09 1B 07 15 12 4C 10 C8
++// 					  39 00 11 B1 40 02 86 0D 13 09 05 09 09 1F 07 15 12 15 19 08
++// 					  39 00 06 FF 77 01 00 00 11
++// 					  15 00 02 B0 50
++// 					  15 00 02 B1 68
++// 					  15 00 02 B2 07
++// 					  15 00 02 B3 80
++// 					  15 00 02 B5 47
++// 					  15 00 02 B7 85
++// 					  15 00 02 B8 21
++// 					  15 00 02 B9 10
++// 					  15 00 02 C1 78
++// 					  15 00 02 C2 78
++// 					  15 64 02 D0 88
++// 					  39 00 04 E0 00 00 02
++// 					  39 00 0c E1 08 00 0A 00 07 00 09 00 00 33 33
++// 					  39 00 0d E2 00 00 00 00 00 00 00 00 00 00 00 00
++// 					  39 00 05 E3 00 00 33 33
++// 					  39 00 03 E4 44 44
++// 					  39 00 11 E5 0E 2D A0 A0 10 2D A0 A0 0A 2D A0 A0 0C 2D A0 A0
++// 					  39 00 05 E6 00 00 33 33
++// 					  39 00 03 E7 44 44
++// 					  39 00 11 E8 0D 2D A0 A0 0F 2D A0 A0 09 2D A0 A0 0B 2D A0 A0
++// 					  39 00 08 EB 02 01 E4 E4 44 00 40
++// 					  39 00 03 EC 02 01
++// 					  39 00 11 ED AB 89 76 54 01 FF FF FF FF FF FF 10 45 67 98 BA
++// 					  39 00 06 FF 77 01 00 00 00
++// 					  15 00 02 36 00
++// 					  05 78 01 11
++// 					  05 14 01 29];
++// 	panel-exit-seq = [05 00 01 28];
++
++// 	display-timings {
++
++// 		timing0 {
++// 			// /* 480x800@64 */
++// 			clock-frequency = <27000000>;
++// 			hactive = <480>;
++// 			vactive = <800>;
++// 			hfront-porch = <10>;
++// 			hsync-len = <10>;
++// 			hback-porch = <10>;
++// 			vfront-porch = <14>;
++// 			vsync-len = <4>;
++// 			vback-porch = <6>;
++// 			hsync-active = <0>;
++// 			vsync-active = <0>;
++// 			de-active = <0>;
++
++// 			// /* 480x800@58 */
++// 			// clock-frequency = <27000000>;
++// 			// hactive = <480>;
++// 			// vactive = <800>;
++// 			// hfront-porch = <10>;
++// 			// hsync-len = <8>;
++// 			// hback-porch = <60>;
++// 			// vfront-porch = <10>;
++// 			// vsync-len = <8>;
++// 			// vback-porch = <20>;
++// 			// hsync-active = <0>;
++// 			// vsync-active = <0>;
++// 			// de-active = <0>;
++// 		};
++// 	};
++// };
++
++// Sipeed-480x360 2022-09-01
++// &panel_dsi {
++// 	pwms = <&pwm0 0 4167>;
++// 	// reset-gpio-num = <27>;
++// 	reset-gpio = <&port0a 27 0>;
++// 	prepare-delay-ms = <0>;
++// 	unprepare-delay-ms = <0>;
++// 	enable-delay-ms = <0>;
++// 	disable-delay-ms = <0>;
++// 	reset-low-delay-ms = <20>;
++// 	reset-high-delay-ms = <100>;
++// 	dsi,format = <MIPI_DSI_FMT_RGB888>;
++// 	dsi,lanes = <2>;
++// 	dsi,flags = <(MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM)>;
++// 	panel-init-seq = [39 00 06 FF 77 01 00 00 13
++// 					  15 00 02 EF 08
++// 					  39 00 06 FF 77 01 00 00 10
++// 					  39 00 03 C0 2C 00
++// 					  39 00 03 C1 0D 02
++// 					  39 00 03 C2 31 05
++// 					  15 00 02 CC 10
++// 					  39 00 11 B0 0A 14 1B 0D 10 05 07 08 06 22 03 11 10 AD 31 1B
++// 					  39 00 11 B1 0A 14 1B 0D 10 05 07 08 06 22 03 11 10 AD 31 1B
++// 					  39 00 06 FF 77 01 00 00 11
++// 					  15 00 02 B0 50
++// 					  15 00 02 B1 5E
++// 					  15 00 02 B2 87
++// 					  15 00 02 B3 87
++// 					  15 00 02 B5 47
++// 					  15 00 02 B7 85
++// 					  15 00 02 B8 21
++// 					  15 00 02 C1 78
++// 					  15 00 02 C2 78
++// 					  15 64 02 D0 88
++// 					  39 00 04 E0 00 1B 02
++// 					  39 00 0C E1 08 A0 00 00 07 A0 00 00 00 44 44
++// 					  39 00 0D E2 11 11 44 44 75 A0 00 00 74 A0 00 00
++// 					  39 00 05 E3 00 00 11 11
++// 					  39 00 03 E4 44 44
++// 					  39 00 11 E5 0A 71 D8 A0 0C 73 D8 A0 0E 75 D8 A0 10 77 D8 A0
++// 					  39 00 05 E6 00 00 11 11
++// 					  39 00 03 E7 44 44
++// 					  39 00 11 E8 09 70 D8 A0 0B 72 D8 A0 0D 74 D8 A0 0F 76 D8 A0
++// 					  39 00 08 EB 02 00 E4 E4 88 00 40
++// 					  39 00 03 EC 3C 00
++// 					  39 00 11 ED AB 89 76 54 02 FF FF FF FF FF FF 20 45 67 98 BA
++// 					  39 00 07 EF 08 08 08 45 3F 54
++// 					  39 00 06 FF 77 01 00 00 13
++// 					  39 00 03 E8 00 0E
++// 					  39 0a 03 E8 00 0C
++// 					  39 00 03 E8 00 00
++// 					  39 00 06 FF 77 01 00 00 00
++// 					  15 00 02 3A 66
++// 					  15 00 02 36 00
++// 					  05 78 01 11
++// 					  05 14 01 29];
++// 	panel-exit-seq = [05 00 01 28];
++// 	display-timings {
++// 		timing0 {
++// 			/* 480x360@60 */
++// 			clock-frequency = <13500000>;
++// 			hactive = <480>;
++// 			vactive = <360>;
++// 			hfront-porch = <25>;
++// 			hsync-len = <25>;
++// 			hback-porch = <30>;
++// 			vfront-porch = <20>;
++// 			vsync-len = <10>;
++// 			vback-porch = <12>;
++// 			hsync-active = <0>;
++// 			vsync-active = <0>;
++// 			de-active = <0>;
++// 		};
++// 	};
++// };
++
++
++// Sipeed-050-6BOE5 2022-11-24
+ &panel_dsi {
+-	reset-gpio = <&expander_io 3 0>;
++	// pwms = <&pwm0 0 4167>;
++	reset-gpio = <&port0a 27 0>;
++	prepare-delay-ms = <0>;
++	unprepare-delay-ms = <0>;
++	enable-delay-ms = <0>;
++	disable-delay-ms = <0>;
+ 	reset-low-delay-ms = <20>;
+ 	reset-high-delay-ms = <100>;
+ 	dsi,format = <MIPI_DSI_FMT_RGB888>;
+-	dsi,lanes = <4>;
++	dsi,lanes = <2>;
+ 	dsi,flags = <(MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM)>;
+-	panel-init-seq = [05 00 01 00];
+-	panel-exit-seq = [05 00 01 00];
+-
++	panel-init-seq = [
++ 					  39 00 06 FF 77 01 00 00 13
++					  39 00 02 EF 08
++ 					  39 00 06 FF 77 01 00 00 10
++					  39 00 03 C0 E9 03
++					  39 00 03 C1 0C 02
++					  39 00 03 C2 30 06
++					  15 00 02 CC 38
++					  39 00 11 B0 40 0B 58 0C 11 06 0B 08 09 26 06 15 18 6A 6E 4F
++					  39 00 11 B1 40 11 57 0D 11 07 0B 09 08 26 05 D3 0D 6B 6E 4F
++					  39 00 06 FF 77 01 00 00 11
++					  15 00 02 B0 56
++					  15 00 02 B1 3A
++					  15 00 02 B2 87
++					  15 00 02 B3 80
++					  15 00 02 B5 4D
++					  15 00 02 B7 85
++					  15 00 02 B8 10
++					  15 00 02 B9 10
++					  15 00 02 BC 03
++					  15 00 02 C0 89
++					  15 00 02 C1 78
++					  15 00 02 C2 78
++					  15 64 02 D0 88
++					  39 00 04 E0 00 00 02
++					  39 00 0c E1 04 00 00 00 05 00 00 00 00 20 20
++					  39 00 0e E2 00 00 00 00 00 00 00 00 00 00 00 00 00
++					  39 00 05 E3 00 00 33 00
++					  39 00 03 E4 22 00
++					  39 00 11 E5 04 5C A0 A0 06 5C A0 A0 00 00 00 00 00 00 00 00
++					  39 00 05 E6 00 00 33 00
++					  39 00 03 E7 22 00
++					  39 00 11 E8 05 5C A0 A0 07 5C A0 A0 00 00 00 00 00 00 00 00
++					  39 00 08 EB 02 00 40 40 00 00 00
++					  39 00 03 EC 00 00
++					  39 00 11 ED FA 45 0B FF FF FF FF FF FF FF FF FF FF B0 54 AF
++					  39 00 07 EF 08 08 08 45 3F 54
++					  39 00 06 FF 77 01 00 00 00
++					  15 00 02 36 00
++					  05 78 01 11
++					  05 14 01 29];
++	panel-exit-seq = [05 00 01 28];
+ 	display-timings {
+-
+ 		timing0 {
+-			/* 1920x1080@60 */
+-			clock-frequency = <148500000>;
+-			hactive = <1920>;
+-			vactive = <1080>;
+-			hfront-porch = <88>;
+-			hsync-len = <44>;
+-			hback-porch = <148>;
+-			vfront-porch = <4>;
+-			vsync-len = <5>;
+-			vback-porch = <36>;
++			/* 480x854@60 */
++			clock-frequency = <27000000>;
++			hactive = <480>;
++			vactive = <854>;
++			hfront-porch = <10>;
++			hsync-len = <10>;
++			hback-porch = <10>;
++			vfront-porch = <14>;
++			vsync-len = <4>;
++			vback-porch = <6>;
+ 			hsync-active = <0>;
+ 			vsync-active = <0>;
+ 			de-active = <0>;
+ 		};
+ 	};
+ };
++
++// Sipeed-050-B4047-B 2022-09-13
++// &panel_dsi {
++// 	// pwms = <&pwm0 0 4167>;
++// 	reset-gpio = <&port0a 27 0>;
++// 	prepare-delay-ms = <0>;
++// 	unprepare-delay-ms = <0>;
++// 	enable-delay-ms = <0>;
++// 	disable-delay-ms = <0>;
++// 	reset-low-delay-ms = <20>;
++// 	reset-high-delay-ms = <100>;
++// 	dsi,format = <MIPI_DSI_FMT_RGB888>;
++// 	dsi,lanes = <2>;
++// 	dsi,flags = <(MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM)>;
++// 	panel-init-seq = [39 00 06 FF 77 01 00 00 10
++// 					  39 00 03 C0 E9 03
++// 					  39 00 03 C1 08 02
++// 					  39 00 03 C2 31 08
++// 					  15 00 02 CC 01
++// 					  39 00 11 B0 00 0B 10 0D 11 06 01 08 08 1D 04 10 10 27 30 19
++// 					  39 00 11 B1 00 0B 14 0C 11 05 03 08 08 20 04 13 10 28 30 19
++// 					  39 00 06 FF 77 01 00 00 11
++// 					  15 00 02 B0 35
++// 					  15 00 02 B1 38
++// 					  15 00 02 B2 02
++// 					  15 00 02 B3 80
++// 					  15 00 02 B5 4e
++// 					  15 00 02 B7 85
++// 					  15 00 02 B8 20
++// 					  15 00 02 B9 10
++// 					  15 00 02 C1 78
++// 					  15 00 02 C2 78
++// 					  15 64 02 D0 88
++// 					  39 00 04 E0 00 00 02
++// 					  39 00 0c E1 05 00 00 00 04 00 00 00 00 20 20
++// 					  39 00 0d E2 00 00 00 00 00 00 00 00 00 00 00 00
++// 					  39 00 05 E3 00 00 33 00
++// 					  39 00 03 E4 22 00
++// 					  39 00 11 E5 07 34 A0 A0 05 34 A0 A0 00 00 00 00 00 00 00 00
++// 					  39 00 05 E6 00 00 33 00
++// 					  39 00 03 E7 22 00
++// 					  39 00 11 E8 06 34 A0 A0 04 34 A0 A0 00 00 00 00 00 00 00 00
++// 					  39 00 08 EB 02 00 10 10 00 00 00
++// 					  39 00 03 EC 02 00
++// 					  39 00 11 ED AA 54 0B BF FF FF FF FF FF FF FF FF FB B0 45 AA
++// 					  39 00 06 FF 77 01 00 00 00
++// 					  15 00 02 36 00
++// 					  05 78 01 11
++// 					  05 14 01 29];
++// 	panel-exit-seq = [05 00 01 28];
++// 	display-timings {
++// 		timing0 {
++// 			/* 480x854@60 */
++// 			clock-frequency = <27000000>;
++// 			hactive = <480>;
++// 			vactive = <854>;
++// 			hfront-porch = <10>;
++// 			hsync-len = <10>;
++// 			hback-porch = <10>;
++// 			vfront-porch = <14>;
++// 			vsync-len = <4>;
++// 			vback-porch = <6>;
++// 			hsync-active = <0>;
++// 			vsync-active = <0>;
++// 			de-active = <0>;
++// 		};
++// 	};
++// };
++
++// ax lcd_JD9365DA.diff
++// &panel_dsi {
++// 	pwms = <&pwm0 0 4167>;
++// 	reset-gpio-num = <29>;
++// 	reset-gpio = <&port0a 29 0>;
++//  	// reset-gpio = <&expander_io 3 0>;
++// 	enable-delay-ms = <0>;
++// 	disable-delay-ms = <0>;
++// 	reset-low-delay-ms = <10>;
++// 	reset-high-delay-ms = <120>;
++// 	dsi,format = <MIPI_DSI_FMT_RGB888>;
++// 	dsi,lanes = <2>;
++// 	dsi,flags = <(MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM)>;
++// 	panel-init-seq = [
++// 					15 00 02 E0 00
++// 					15 00 02 E1 93
++// 					15 00 02 E2 65
++// 					15 00 02 E3 F8
++// 					15 00 02 80 01
++
++// 					15 00 02 E0 01
++// 					15 00 02 00 00
++// 					15 00 02 01 64
++// 					15 00 02 03 00
++// 					15 00 02 04 2F
++
++// 					15 00 02 0C 74
++
++// 					15 00 02 17 00
++// 					15 00 02 18 AF
++// 					15 00 02 19 01
++// 					15 00 02 1A 00
++// 					15 00 02 1B AF
++// 					15 00 02 1C 01
++
++// 					15 00 02 24 FE
++// 					15 00 02 25 20
++
++// 					15 00 02 35 23
++
++// 					15 00 02 37 09
++
++// 					15 00 02 38 04
++// 					15 00 02 39 08
++// 					15 00 02 3A 12
++// 					15 00 02 3C 78
++// 					15 00 02 3D FF
++// 					15 00 02 3E FF
++// 					15 00 02 3F FF
++
++// 					15 00 02 40 06
++// 					15 00 02 41 A0
++// 					15 00 02 43 14
++// 					15 00 02 44 0F
++// 					15 00 02 45 30
++// 					15 00 02 4B 04
++
++// 					15 00 02 55 02
++// 					15 00 02 57 65
++// 					15 00 02 59 0A
++// 					15 00 02 5A 28
++// 					15 00 02 5B 0F
++
++// 					15 00 02 5D 7C
++// 					15 00 02 5E 6B
++// 					15 00 02 5F 5F
++// 					15 00 02 60 54
++// 					15 00 02 61 55
++// 					15 00 02 62 48
++// 					15 00 02 63 4F
++// 					15 00 02 64 3A
++// 					15 00 02 65 53
++// 					15 00 02 66 4E
++// 					15 00 02 67 48
++// 					15 00 02 68 5C
++// 					15 00 02 69 43
++// 					15 00 02 6A 44
++// 					15 00 02 6B 33
++// 					15 00 02 6C 2E
++// 					15 00 02 6D 20
++// 					15 00 02 6E 10
++// 					15 00 02 6F 00
++// 					15 00 02 70 7C
++// 					15 00 02 71 6B
++// 					15 00 02 72 5F
++// 					15 00 02 73 54
++// 					15 00 02 74 55
++// 					15 00 02 75 48
++// 					15 00 02 76 4F
++// 					15 00 02 77 3A
++// 					15 00 02 78 53
++// 					15 00 02 79 4E
++// 					15 00 02 7A 48
++// 					15 00 02 7B 5C
++// 					15 00 02 7C 43
++// 					15 00 02 7D 44
++// 					15 00 02 7E 33
++// 					15 00 02 7F 2E
++// 					15 00 02 80 20
++// 					15 00 02 81 10
++// 					15 00 02 82 00
++
++// 					15 00 02 E0 02
++
++// 					15 00 02 00 5E
++// 					15 00 02 01 5F
++// 					15 00 02 02 57
++// 					15 00 02 03 58
++// 					15 00 02 04 44
++// 					15 00 02 05 46
++// 					15 00 02 06 48
++// 					15 00 02 07 4A
++// 					15 00 02 08 40
++// 					15 00 02 09 5F
++// 					15 00 02 0A 5F
++// 					15 00 02 0B 5F
++// 					15 00 02 0C 5F
++// 					15 00 02 0D 5F
++// 					15 00 02 0E 5F
++// 					15 00 02 0F 50
++// 					15 00 02 10 5F
++// 					15 00 02 11 5F
++// 					15 00 02 12 5F
++// 					15 00 02 13 5F
++// 					15 00 02 14 5F
++// 					15 00 02 15 5F
++
++// 					15 00 02 16 5E
++// 					15 00 02 17 5F
++// 					15 00 02 18 57
++// 					15 00 02 19 58
++// 					15 00 02 1A 45
++// 					15 00 02 1B 47
++// 					15 00 02 1C 49
++// 					15 00 02 1D 4B
++// 					15 00 02 1E 41
++// 					15 00 02 1F 5F
++// 					15 00 02 20 5F
++// 					15 00 02 21 5F
++// 					15 00 02 22 5F
++// 					15 00 02 23 5F
++// 					15 00 02 24 5F
++// 					15 00 02 25 51
++// 					15 00 02 26 5F
++// 					15 00 02 27 5F
++// 					15 00 02 28 5F
++// 					15 00 02 29 5F
++// 					15 00 02 2A 5F
++// 					15 00 02 2B 5F
++
++// 					15 00 02 2C 1F
++// 					15 00 02 2D 1E
++// 					15 00 02 2E 17
++// 					15 00 02 2F 18
++// 					15 00 02 30 0B
++// 					15 00 02 31 09
++// 					15 00 02 32 07
++// 					15 00 02 33 05
++// 					15 00 02 34 11
++// 					15 00 02 35 1F
++// 					15 00 02 36 1F
++// 					15 00 02 37 1F
++// 					15 00 02 38 1F
++// 					15 00 02 39 1F
++// 					15 00 02 3A 1F
++// 					15 00 02 3B 01
++// 					15 00 02 3C 1F
++// 					15 00 02 3D 1F
++// 					15 00 02 3E 1F
++// 					15 00 02 3F 1F
++// 					15 00 02 40 1F
++// 					15 00 02 41 1F
++
++// 					15 00 02 42 1F
++// 					15 00 02 43 1E
++// 					15 00 02 44 17
++// 					15 00 02 45 18
++// 					15 00 02 46 0A
++// 					15 00 02 47 08
++// 					15 00 02 48 06
++// 					15 00 02 49 04
++// 					15 00 02 4A 10
++// 					15 00 02 4B 1F
++// 					15 00 02 4C 1F
++// 					15 00 02 4D 1F
++// 					15 00 02 4E 1F
++// 					15 00 02 4F 1F
++// 					15 00 02 50 1F
++// 					15 00 02 51 00
++// 					15 00 02 52 1F
++// 					15 00 02 53 1F
++// 					15 00 02 54 1F
++// 					15 00 02 55 1F
++// 					15 00 02 56 1F
++// 					15 00 02 57 1F
++
++// 					15 00 02 58 40
++// 					15 00 02 59 00
++// 					15 00 02 5A 00
++// 					15 00 02 5B 30
++// 					15 00 02 5C 0B
++// 					15 00 02 5D 30
++// 					15 00 02 5E 01
++// 					15 00 02 5F 02
++// 					15 00 02 60 30
++// 					15 00 02 61 03
++// 					15 00 02 62 04
++// 					15 00 02 63 1C
++// 					15 00 02 64 6A
++// 					15 00 02 65 75
++// 					15 00 02 66 0F
++// 					15 00 02 67 73
++// 					15 00 02 68 0D
++// 					15 00 02 69 1C
++// 					15 00 02 6A 6A
++// 					15 00 02 6B 00
++// 					15 00 02 6C 00
++// 					15 00 02 6D 00
++// 					15 00 02 6E 00
++// 					15 00 02 6F 88
++// 					15 00 02 70 00
++// 					15 00 02 71 00
++// 					15 00 02 72 06
++// 					15 00 02 73 7B
++// 					15 00 02 74 00
++// 					15 00 02 75 BB
++// 					15 00 02 76 01
++// 					15 00 02 77 0D
++// 					15 00 02 78 24
++// 					15 00 02 79 00
++// 					15 00 02 7A 00
++// 					15 00 02 7B 00
++// 					15 00 02 7C 00
++// 					15 00 02 7D 03
++// 					15 00 02 7E 7B
++
++// 					15 00 02 E0 04
++// 					15 00 02 00 0E
++// 					15 00 02 02 B3
++// 					15 00 02 09 60
++// 					15 00 02 0E 4A
++// 					15 00 02 2D 03
++// 					15 00 02 E0 00
++// 					05 78 01 11
++// 					05 05 01 29
++// 					15 00 02 35 00
++// 					];
++
++// 	panel-exit-seq = [05 00 01 28];
++
++// 	display-timings {
++
++// 		timing0 {
++// 			/* 800x1280@45 */
++// 			clock-frequency = <52000000>;
++// 			hactive = <800>;
++// 			vactive = <1280>;
++// 			hfront-porch = <30>;
++// 			hsync-len = <24>;
++// 			hback-porch = <24>;
++// 			vfront-porch = <20>;
++// 			vsync-len = <4>;
++// 			vback-porch = <12>;
++// 			hsync-active = <0>;
++// 			vsync-active = <0>;
++// 			de-active = <0>;
++// 		};
++// 	};
++// };
++
++// &panel_dsi {
++// 	pwms = <&pwm0 0 4167>;
++// 	reset-gpio = <&port0a 27 0>;
++// 	reset-low-delay-ms = <20>;
++// 	reset-high-delay-ms = <100>;
++// 	dsi,format = <MIPI_DSI_FMT_RGB888>;
++// 	dsi,lanes = <4>;
++// 	dsi,flags = <(MIPI_DSI_MODE_VIDEO_SYNC_PULSE | MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM)>;
++// 	panel-init-seq = [
++// 						15 00 02 53 29
++// 						39 00 03 51 FF 01
++// 						15 00 02 03 00
++// 						39 00 07 80 00 E0 E0 0E 00 31
++// 					 	39 00 08 81 03 04 00 29 00 04 00
++// 					 	39 00 08 82 03 04 00 29 00 04 01
++// 						15 00 02 35 00
++// 						15 00 02 26 20
++// 						39 00 03 F0 AA 11
++// 						15 00 02 C0 00
++// 					 	39 00 09 C2 03 FF 03 FF 03 FF 03 FF
++// 						39 00 03 F0 AA 12
++// 						39 00 03 BF 37 A3
++// 						39 00 03 FF 5A 80
++// 						15 00 02 65 2F
++// 						15 00 02 F2 01
++// 						39 00 03 FF 5A 81
++// 						15 00 02 65 05
++// 						15 00 02 F2 20
++// 						15 00 02 65 16
++// 					 	39 00 0F F9 01 61 65 69 6D 71 76 7A 7E 82 86 8B 8F 93
++// 						05 78 01 11
++// 						05 14 01 29
++// 						39 00 03 F0 AA 11
++// 						15 00 02 C0 FF
++// 	];
++// 	panel-exit-seq = [05 00 01 00];
++// 	display-timings {
++// 		timing0 {
++// 			/* 1920x1080@60 */
++// 			clock-frequency = <148500000>;
++// 			hactive = <1920>;
++// 			vactive = <1080>;
++// 			hfront-porch = <88>;
++// 			hsync-len = <44>;
++// 			hback-porch = <148>;
++// 			vfront-porch = <4>;
++// 			vsync-len = <5>;
++// 			vback-porch = <36>;
++// 			hsync-active = <0>;
++// 			vsync-active = <0>;
++// 			de-active = <0>;
++// 		};
++// 	};
++// };
+\ No newline at end of file
+diff --git a/linux/linux-4.19.125/arch/arm/boot/dts/axera_ax620x.dtsi b/linux/linux-4.19.125/arch/arm/boot/dts/axera_ax620x.dtsi
+index ba71de53f..b7addd1a4 100644
+--- a/linux/linux-4.19.125/arch/arm/boot/dts/axera_ax620x.dtsi
++++ b/linux/linux-4.19.125/arch/arm/boot/dts/axera_ax620x.dtsi
+@@ -528,7 +528,7 @@
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+ 				#interrupt-cells = <2>;
+-				status = "okay";
++				status = "disable";
+ 			};
+ 			pt7c4563: pt7c4563@51 {
+                                 compatible = "diodes,pt7c4563";
+@@ -576,7 +576,7 @@
+ 			compatible = "snps,dw-apb-ssi";
+ 			reg = <0x0499A000 0x400>;
+ 			interrupts = <0 123 4>;
+-			cs-gpios = <&port2a 5 0>; //config CS0 to GPIO2_A5
++			cs-gpios = <&port2a 1 0>; //config CS0 to GPIO2_A1
+ 			pinctrl-names = "default";
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+diff --git a/linux/linux-4.19.125/arch/arm/configs/axera_AX620_defconfig b/linux/linux-4.19.125/arch/arm/configs/axera_AX620_defconfig
+index 7742de8a8..7f5cc46b9 100644
+--- a/linux/linux-4.19.125/arch/arm/configs/axera_AX620_defconfig
++++ b/linux/linux-4.19.125/arch/arm/configs/axera_AX620_defconfig
+@@ -182,6 +182,7 @@ CONFIG_SLAB_MERGE_DEFAULT=y
+ # CONFIG_SLAB_FREELIST_RANDOM is not set
+ # CONFIG_SLAB_FREELIST_HARDENED is not set
+ CONFIG_SLUB_CPU_PARTIAL=y
++CONFIG_SYSTEM_DATA_VERIFICATION=y
+ CONFIG_PROFILING=y
+ CONFIG_TRACEPOINTS=y
+ CONFIG_ARM=y
+@@ -639,6 +640,7 @@ CONFIG_DEFAULT_IOSCHED="noop"
+ CONFIG_MQ_IOSCHED_DEADLINE=y
+ CONFIG_MQ_IOSCHED_KYBER=y
+ # CONFIG_IOSCHED_BFQ is not set
++CONFIG_ASN1=y
+ CONFIG_UNINLINE_SPIN_UNLOCK=y
+ CONFIG_ARCH_SUPPORTS_ATOMIC_RMW=y
+ CONFIG_MUTEX_SPIN_ON_OWNER=y
+@@ -673,19 +675,13 @@ CONFIG_BOUNCE=y
+ CONFIG_DEFAULT_MMAP_MIN_ADDR=4096
+ # CONFIG_CLEANCACHE is not set
+ # CONFIG_FRONTSWAP is not set
+-<<<<<<< HEAD   (5f8dcb [AX620SW-5159] timer: add apb timer driver)
+-CONFIG_CMA=y
+-# CONFIG_CMA_DEBUG is not set
+-# CONFIG_CMA_DEBUGFS is not set
+-CONFIG_CMA_AREAS=7
+-=======
+ # CONFIG_CMA is not set
+->>>>>>> CHANGE (737e08 [AX620SW-4854] linux: add cpufreq driver)
+ # CONFIG_ZPOOL is not set
+ # CONFIG_ZBUD is not set
+ # CONFIG_ZSMALLOC is not set
+ CONFIG_GENERIC_EARLY_IOREMAP=y
+ # CONFIG_IDLE_PAGE_TRACKING is not set
++CONFIG_FRAME_VECTOR=y
+ # CONFIG_PERCPU_STATS is not set
+ # CONFIG_GUP_BENCHMARK is not set
+ CONFIG_NET=y
+@@ -700,7 +696,6 @@ CONFIG_UNIX=y
+ # CONFIG_TLS is not set
+ CONFIG_XFRM=y
+ # CONFIG_XFRM_USER is not set
+-# CONFIG_XFRM_INTERFACE is not set
+ # CONFIG_XFRM_SUB_POLICY is not set
+ # CONFIG_XFRM_MIGRATE is not set
+ # CONFIG_XFRM_STATISTICS is not set
+@@ -717,7 +712,6 @@ CONFIG_IP_PNP_BOOTP=y
+ # CONFIG_SYN_COOKIES is not set
+ # CONFIG_NET_IPVTI is not set
+ # CONFIG_NET_FOU is not set
+-# CONFIG_NET_FOU_IP_TUNNELS is not set
+ # CONFIG_INET_AH is not set
+ # CONFIG_INET_ESP is not set
+ # CONFIG_INET_IPCOMP is not set
+@@ -755,7 +749,6 @@ CONFIG_HAVE_NET_DSA=y
+ # CONFIG_X25 is not set
+ # CONFIG_LAPB is not set
+ # CONFIG_PHONET is not set
+-# CONFIG_6LOWPAN is not set
+ # CONFIG_IEEE802154 is not set
+ # CONFIG_NET_SCHED is not set
+ # CONFIG_DCB is not set
+@@ -790,7 +783,22 @@ CONFIG_NET_FLOW_LIMIT=y
+ # CONFIG_BT is not set
+ # CONFIG_AF_RXRPC is not set
+ # CONFIG_AF_KCM is not set
+-# CONFIG_WIRELESS is not set
++CONFIG_WIRELESS=y
++CONFIG_WIRELESS_EXT=y
++CONFIG_WEXT_CORE=y
++CONFIG_WEXT_PROC=y
++CONFIG_WEXT_PRIV=y
++CONFIG_CFG80211=y
++# CONFIG_NL80211_TESTMODE is not set
++# CONFIG_CFG80211_DEVELOPER_WARNINGS is not set
++CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y
++CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS=y
++CONFIG_CFG80211_DEFAULT_PS=y
++# CONFIG_CFG80211_DEBUGFS is not set
++CONFIG_CFG80211_CRDA_SUPPORT=y
++# CONFIG_CFG80211_WEXT is not set
++# CONFIG_MAC80211 is not set
++CONFIG_MAC80211_STA_HASH_MAX_SIZE=0
+ # CONFIG_WIMAX is not set
+ # CONFIG_RFKILL is not set
+ # CONFIG_NET_9P is not set
+@@ -838,20 +846,6 @@ CONFIG_REGMAP_SPI=y
+ CONFIG_REGMAP_MMIO=y
+ CONFIG_DMA_SHARED_BUFFER=y
+ # CONFIG_DMA_FENCE_TRACE is not set
+-<<<<<<< HEAD   (5f8dcb [AX620SW-5159] timer: add apb timer driver)
+-CONFIG_DMA_CMA=y
+-
+-#
+-# Default contiguous memory area size:
+-#
+-CONFIG_CMA_SIZE_MBYTES=64
+-CONFIG_CMA_SIZE_SEL_MBYTES=y
+-# CONFIG_CMA_SIZE_SEL_PERCENTAGE is not set
+-# CONFIG_CMA_SIZE_SEL_MIN is not set
+-# CONFIG_CMA_SIZE_SEL_MAX is not set
+-CONFIG_CMA_ALIGNMENT=8
+-=======
+->>>>>>> CHANGE (737e08 [AX620SW-4854] linux: add cpufreq driver)
+ CONFIG_GENERIC_ARCH_TOPOLOGY=y
+ 
+ #
+@@ -1229,7 +1223,31 @@ CONFIG_USB_NET_DRIVERS=y
+ # CONFIG_USB_LAN78XX is not set
+ # CONFIG_USB_USBNET is not set
+ # CONFIG_USB_IPHETH is not set
+-# CONFIG_WLAN is not set
++CONFIG_WLAN=y
++CONFIG_WLAN_VENDOR_ADMTEK=y
++CONFIG_WLAN_VENDOR_ATH=y
++# CONFIG_ATH_DEBUG is not set
++# CONFIG_ATH6KL is not set
++CONFIG_WLAN_VENDOR_ATMEL=y
++CONFIG_WLAN_VENDOR_BROADCOM=y
++# CONFIG_BRCMFMAC is not set
++CONFIG_WLAN_VENDOR_CISCO=y
++CONFIG_WLAN_VENDOR_INTEL=y
++CONFIG_WLAN_VENDOR_INTERSIL=y
++# CONFIG_HOSTAP is not set
++CONFIG_WLAN_VENDOR_MARVELL=y
++# CONFIG_LIBERTAS is not set
++# CONFIG_MWIFIEX is not set
++CONFIG_WLAN_VENDOR_MEDIATEK=y
++CONFIG_WLAN_VENDOR_RALINK=y
++CONFIG_WLAN_VENDOR_REALTEK=y
++CONFIG_WLAN_VENDOR_RSI=y
++CONFIG_WLAN_VENDOR_ST=y
++CONFIG_WLAN_VENDOR_TI=y
++CONFIG_WLAN_VENDOR_ZYDAS=y
++# CONFIG_USB_ZD1201 is not set
++CONFIG_WLAN_VENDOR_QUANTENNA=y
++# CONFIG_USB_NET_RNDIS_WLAN is not set
+ 
+ #
+ # Enable WiMAX (Networking options) to see the WiMAX drivers
+@@ -1486,7 +1504,7 @@ CONFIG_SPI_AXERA_MMIO=y
+ #
+ # SPI Protocol Masters
+ #
+-# CONFIG_SPI_SPIDEV is not set
++CONFIG_SPI_SPIDEV=y
+ # CONFIG_SPI_LOOPBACK_TEST is not set
+ # CONFIG_SPI_TLE62X0 is not set
+ # CONFIG_SPI_SLAVE is not set
+@@ -1765,7 +1783,167 @@ CONFIG_MFD_SYSCON=y
+ # CONFIG_MFD_ROHM_BD718XX is not set
+ # CONFIG_REGULATOR is not set
+ # CONFIG_RC_CORE is not set
+-# CONFIG_MEDIA_SUPPORT is not set
++CONFIG_MEDIA_SUPPORT=y
++
++#
++# Multimedia core support
++#
++CONFIG_MEDIA_CAMERA_SUPPORT=y
++# CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
++# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
++# CONFIG_MEDIA_RADIO_SUPPORT is not set
++# CONFIG_MEDIA_SDR_SUPPORT is not set
++# CONFIG_MEDIA_CEC_SUPPORT is not set
++# CONFIG_MEDIA_CONTROLLER is not set
++CONFIG_VIDEO_DEV=y
++CONFIG_VIDEO_V4L2=y
++# CONFIG_VIDEO_ADV_DEBUG is not set
++# CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
++
++#
++# Media drivers
++#
++CONFIG_MEDIA_USB_SUPPORT=y
++
++#
++# Webcam devices
++#
++CONFIG_USB_VIDEO_CLASS=y
++CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=y
++CONFIG_USB_GSPCA=m
++# CONFIG_USB_M5602 is not set
++# CONFIG_USB_STV06XX is not set
++# CONFIG_USB_GL860 is not set
++# CONFIG_USB_GSPCA_BENQ is not set
++# CONFIG_USB_GSPCA_CONEX is not set
++# CONFIG_USB_GSPCA_CPIA1 is not set
++# CONFIG_USB_GSPCA_DTCS033 is not set
++# CONFIG_USB_GSPCA_ETOMS is not set
++# CONFIG_USB_GSPCA_FINEPIX is not set
++# CONFIG_USB_GSPCA_JEILINJ is not set
++# CONFIG_USB_GSPCA_JL2005BCD is not set
++# CONFIG_USB_GSPCA_KINECT is not set
++# CONFIG_USB_GSPCA_KONICA is not set
++# CONFIG_USB_GSPCA_MARS is not set
++# CONFIG_USB_GSPCA_MR97310A is not set
++# CONFIG_USB_GSPCA_NW80X is not set
++# CONFIG_USB_GSPCA_OV519 is not set
++# CONFIG_USB_GSPCA_OV534 is not set
++# CONFIG_USB_GSPCA_OV534_9 is not set
++# CONFIG_USB_GSPCA_PAC207 is not set
++# CONFIG_USB_GSPCA_PAC7302 is not set
++# CONFIG_USB_GSPCA_PAC7311 is not set
++# CONFIG_USB_GSPCA_SE401 is not set
++# CONFIG_USB_GSPCA_SN9C2028 is not set
++# CONFIG_USB_GSPCA_SN9C20X is not set
++# CONFIG_USB_GSPCA_SONIXB is not set
++# CONFIG_USB_GSPCA_SONIXJ is not set
++# CONFIG_USB_GSPCA_SPCA500 is not set
++# CONFIG_USB_GSPCA_SPCA501 is not set
++# CONFIG_USB_GSPCA_SPCA505 is not set
++# CONFIG_USB_GSPCA_SPCA506 is not set
++# CONFIG_USB_GSPCA_SPCA508 is not set
++# CONFIG_USB_GSPCA_SPCA561 is not set
++# CONFIG_USB_GSPCA_SPCA1528 is not set
++# CONFIG_USB_GSPCA_SQ905 is not set
++# CONFIG_USB_GSPCA_SQ905C is not set
++# CONFIG_USB_GSPCA_SQ930X is not set
++# CONFIG_USB_GSPCA_STK014 is not set
++# CONFIG_USB_GSPCA_STK1135 is not set
++# CONFIG_USB_GSPCA_STV0680 is not set
++# CONFIG_USB_GSPCA_SUNPLUS is not set
++# CONFIG_USB_GSPCA_T613 is not set
++# CONFIG_USB_GSPCA_TOPRO is not set
++# CONFIG_USB_GSPCA_TOUPTEK is not set
++# CONFIG_USB_GSPCA_TV8532 is not set
++# CONFIG_USB_GSPCA_VC032X is not set
++# CONFIG_USB_GSPCA_VICAM is not set
++# CONFIG_USB_GSPCA_XIRLINK_CIT is not set
++# CONFIG_USB_GSPCA_ZC3XX is not set
++# CONFIG_USB_PWC is not set
++# CONFIG_VIDEO_CPIA2 is not set
++# CONFIG_USB_ZR364XX is not set
++# CONFIG_USB_STKWEBCAM is not set
++# CONFIG_USB_S2255 is not set
++# CONFIG_VIDEO_USBTV is not set
++
++#
++# Webcam, TV (analog/digital) USB devices
++#
++# CONFIG_VIDEO_EM28XX is not set
++# CONFIG_V4L_PLATFORM_DRIVERS is not set
++# CONFIG_V4L_MEM2MEM_DRIVERS is not set
++# CONFIG_V4L_TEST_DRIVERS is not set
++
++#
++# Supported MMC/SDIO adapters
++#
++# CONFIG_CYPRESS_FIRMWARE is not set
++CONFIG_VIDEOBUF2_CORE=y
++CONFIG_VIDEOBUF2_V4L2=y
++CONFIG_VIDEOBUF2_MEMOPS=y
++CONFIG_VIDEOBUF2_VMALLOC=y
++
++#
++# Media ancillary drivers (tuners, sensors, i2c, spi, frontends)
++#
++CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
++
++#
++# Audio decoders, processors and mixers
++#
++
++#
++# RDS decoders
++#
++
++#
++# Video decoders
++#
++
++#
++# Video and audio decoders
++#
++
++#
++# Video encoders
++#
++
++#
++# Camera sensor devices
++#
++
++#
++# Flash devices
++#
++
++#
++# Video improvement chips
++#
++
++#
++# Audio/Video compression chips
++#
++
++#
++# SDR tuner chips
++#
++
++#
++# Miscellaneous helper chips
++#
++
++#
++# Sensors used on soc_camera driver
++#
++
++#
++# Media SPI Adapters
++#
++
++#
++# Tools to develop new frontends
++#
+ 
+ #
+ # Graphics support
+@@ -2451,6 +2629,8 @@ CONFIG_USB_U_ETHER=y
+ CONFIG_USB_F_SERIAL=y
+ CONFIG_USB_F_RNDIS=y
+ CONFIG_USB_F_MASS_STORAGE=y
++CONFIG_USB_F_UVC=y
++CONFIG_USB_F_HID=y
+ CONFIG_USB_CONFIGFS=y
+ CONFIG_USB_CONFIGFS_SERIAL=y
+ CONFIG_USB_CONFIGFS_ACM=y
+@@ -2467,7 +2647,8 @@ CONFIG_USB_CONFIGFS_F_LB_SS=y
+ # CONFIG_USB_CONFIGFS_F_UAC1_LEGACY is not set
+ # CONFIG_USB_CONFIGFS_F_UAC2 is not set
+ # CONFIG_USB_CONFIGFS_F_MIDI is not set
+-# CONFIG_USB_CONFIGFS_F_HID is not set
++CONFIG_USB_CONFIGFS_F_HID=y
++CONFIG_USB_CONFIGFS_F_UVC=y
+ # CONFIG_USB_CONFIGFS_F_PRINTER is not set
+ CONFIG_TYPEC=y
+ CONFIG_TYPEC_TCPM=y
+@@ -2562,7 +2743,7 @@ CONFIG_RTC_INTF_DEV=y
+ # CONFIG_RTC_DRV_PCF8523 is not set
+ # CONFIG_RTC_DRV_PCF85063 is not set
+ # CONFIG_RTC_DRV_PCF85363 is not set
+-# CONFIG_RTC_DRV_PCF8563 is not set
++CONFIG_RTC_DRV_PCF8563=y
+ # CONFIG_RTC_DRV_PCF8583 is not set
+ # CONFIG_RTC_DRV_M41T80 is not set
+ # CONFIG_RTC_DRV_BQ32K is not set
+@@ -2674,7 +2855,42 @@ CONFIG_UIO_PDRV_GENIRQ=m
+ #
+ # Microsoft Hyper-V guest support
+ #
+-# CONFIG_STAGING is not set
++CONFIG_STAGING=y
++# CONFIG_PRISM2_USB is not set
++# CONFIG_COMEDI is not set
++# CONFIG_RTLLIB is not set
++CONFIG_RTL8723BS=y
++# CONFIG_R8712U is not set
++# CONFIG_R8188EU is not set
++
++#
++# Speakup console speech
++#
++# CONFIG_SPEAKUP is not set
++# CONFIG_STAGING_MEDIA is not set
++
++#
++# Android
++#
++# CONFIG_STAGING_BOARD is not set
++# CONFIG_LTE_GDM724X is not set
++# CONFIG_GS_FPGABOOT is not set
++# CONFIG_UNISYSSPAR is not set
++# CONFIG_COMMON_CLK_XLNX_CLKWZRD is not set
++# CONFIG_FB_TFT is not set
++# CONFIG_WILC1000_SDIO is not set
++# CONFIG_WILC1000_SPI is not set
++# CONFIG_MOST is not set
++# CONFIG_KS7010 is not set
++# CONFIG_GREYBUS is not set
++# CONFIG_PI433 is not set
++# CONFIG_MTK_MMC is not set
++
++#
++# Gasket devices
++#
++# CONFIG_XIL_AXIS_FIFO is not set
++# CONFIG_EROFS_FS is not set
+ # CONFIG_GOLDFISH is not set
+ # CONFIG_CHROME_PLATFORMS is not set
+ # CONFIG_MELLANOX_PLATFORM is not set
+@@ -3075,12 +3291,13 @@ CONFIG_CRYPTO_RNG=m
+ CONFIG_CRYPTO_RNG2=y
+ CONFIG_CRYPTO_RNG_DEFAULT=m
+ CONFIG_CRYPTO_AKCIPHER2=y
++CONFIG_CRYPTO_AKCIPHER=y
+ CONFIG_CRYPTO_KPP2=y
+ CONFIG_CRYPTO_ACOMP2=y
+-# CONFIG_CRYPTO_RSA is not set
++CONFIG_CRYPTO_RSA=y
+ # CONFIG_CRYPTO_DH is not set
+ # CONFIG_CRYPTO_ECDH is not set
+-CONFIG_CRYPTO_MANAGER=m
++CONFIG_CRYPTO_MANAGER=y
+ CONFIG_CRYPTO_MANAGER2=y
+ # CONFIG_CRYPTO_USER is not set
+ CONFIG_CRYPTO_MANAGER_DISABLE_TESTS=y
+@@ -3145,7 +3362,7 @@ CONFIG_CRYPTO_CRC32C=y
+ # CONFIG_CRYPTO_RMD256 is not set
+ # CONFIG_CRYPTO_RMD320 is not set
+ # CONFIG_CRYPTO_SHA1 is not set
+-CONFIG_CRYPTO_SHA256=m
++CONFIG_CRYPTO_SHA256=y
+ # CONFIG_CRYPTO_SHA512 is not set
+ # CONFIG_CRYPTO_SHA3 is not set
+ # CONFIG_CRYPTO_SM3 is not set
+@@ -3197,12 +3414,22 @@ CONFIG_CRYPTO_JITTERENTROPY=m
+ # CONFIG_CRYPTO_USER_API_SKCIPHER is not set
+ # CONFIG_CRYPTO_USER_API_RNG is not set
+ # CONFIG_CRYPTO_USER_API_AEAD is not set
++CONFIG_CRYPTO_HASH_INFO=y
+ # CONFIG_CRYPTO_HW is not set
+-# CONFIG_ASYMMETRIC_KEY_TYPE is not set
++CONFIG_ASYMMETRIC_KEY_TYPE=y
++CONFIG_ASYMMETRIC_PUBLIC_KEY_SUBTYPE=y
++CONFIG_X509_CERTIFICATE_PARSER=y
++CONFIG_PKCS7_MESSAGE_PARSER=y
++# CONFIG_PKCS7_TEST_KEY is not set
++# CONFIG_SIGNED_PE_FILE_VERIFICATION is not set
+ 
+ #
+ # Certificates for signature checking
+ #
++CONFIG_SYSTEM_TRUSTED_KEYRING=y
++CONFIG_SYSTEM_TRUSTED_KEYS=""
++# CONFIG_SYSTEM_EXTRA_CERTIFICATE is not set
++# CONFIG_SECONDARY_TRUSTED_KEYRING is not set
+ # CONFIG_SYSTEM_BLACKLIST_KEYRING is not set
+ CONFIG_BINARY_PRINTF=y
+ 
+@@ -3261,9 +3488,11 @@ CONFIG_DQL=y
+ CONFIG_GLOB=y
+ # CONFIG_GLOB_SELFTEST is not set
+ CONFIG_NLATTR=y
++CONFIG_CLZ_TAB=y
+ # CONFIG_CORDIC is not set
+ # CONFIG_DDR is not set
+ # CONFIG_IRQ_POLL is not set
++CONFIG_MPILIB=y
+ CONFIG_LIBFDT=y
+ CONFIG_OID_REGISTRY=y
+ CONFIG_FONT_SUPPORT=y
+diff --git a/linux/linux-4.19.125/drivers/gpu/drm/panel/panel-simple.c b/linux/linux-4.19.125/drivers/gpu/drm/panel/panel-simple.c
+index 0455cdf09..06fcb7119 100644
+--- a/linux/linux-4.19.125/drivers/gpu/drm/panel/panel-simple.c
++++ b/linux/linux-4.19.125/drivers/gpu/drm/panel/panel-simple.c
+@@ -12,8 +12,10 @@
+ #include <linux/gpio/consumer.h>
+ #include <linux/module.h>
+ #include <linux/of_platform.h>
++#include <linux/of_gpio.h>
+ #include <linux/platform_device.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/pwm.h>
+ 
+ #include <drm/drmP.h>
+ #include <drm/drm_crtc.h>
+@@ -743,6 +745,24 @@ static int panel_dsi_dts_parse(struct device *dev, struct panel_desc_dsi *desc_d
+ 		pr_info("%s panel-exit-seq not defined\n", __func__);
+ 	}
+ 
++	// unsigned int gpio_num = 0;
++	// of_property_read_u32(dev->of_node, "reset-gpio-num", &gpio_num);
++	// if (ret) {
++	// 	pr_err("%s read reset-gpio-num failed, ret = %d\n", __func__, ret);
++	// } else {
++	// 	gpio_request(gpio_num, NULL);
++	// 	gpio_direction_output(gpio_num, 1);
++	// }
++
++	struct pwm_device *pwm_dev = of_pwm_get(dev->of_node, NULL);
++	if (IS_ERR(pwm_dev)) {
++		pr_err("%s: of_pwm_get failed\n", __func__);
++	} else {
++		pr_info("%s dls pwm period = %d\n", __func__, pwm_dev->args.period);
++		pwm_config(pwm_dev, pwm_dev->args.period, pwm_dev->args.period);
++		pwm_enable(pwm_dev);
++	}
++
+ 	pr_info("%s done\n", __func__);
+ 
+ 	return 0;
+diff --git a/linux/linux-4.19.125/drivers/staging/rtl8723bs/Kconfig b/linux/linux-4.19.125/drivers/staging/rtl8723bs/Kconfig
+index deae0427b..a218524fb 100644
+--- a/linux/linux-4.19.125/drivers/staging/rtl8723bs/Kconfig
++++ b/linux/linux-4.19.125/drivers/staging/rtl8723bs/Kconfig
+@@ -1,7 +1,7 @@
+ config RTL8723BS
+ 	tristate "Realtek RTL8723BS SDIO Wireless LAN NIC driver"
+ 	depends on WLAN && MMC && CFG80211
+-	depends on m
++	depends on y
+ 	select WIRELESS_EXT
+ 	select WEXT_PRIV
+ 	---help---
+-- 
+2.25.1
+

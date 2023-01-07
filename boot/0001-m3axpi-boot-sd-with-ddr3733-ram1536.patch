@@ -1,0 +1,429 @@
+From 1c98822fae093b1510cce7b21b101f269cab462b Mon Sep 17 00:00:00 2001
+From: junhuanchen <junhuanchen@qq.com>
+Date: Sat, 7 Jan 2023 13:15:03 +0800
+Subject: [PATCH] [m3axpi boot-sd with ddr3733 ram1536]
+
+---
+ .gitignore                                    |   1 +
+ bl1/driver/include/lpddr4x.h                  |   8 +-
+ .../arch/arm/mach-axera/ax620/ax620.c         |   8 +
+ .../board/axera/ax620_demo/pinmux_demo.h      | 100 ++++++------
+ uboot/u-boot-2020.04/fs/fs.c                  | 143 ------------------
+ .../include/configs/ax620_common.h            |   6 +-
+ .../scripts/config_whitelist.txt              |   1 +
+ 7 files changed, 67 insertions(+), 200 deletions(-)
+ create mode 100644 .gitignore
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 00000000..600d2d33
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1 @@
++.vscode
+\ No newline at end of file
+diff --git a/bl1/driver/include/lpddr4x.h b/bl1/driver/include/lpddr4x.h
+index 40d1962c..45db1439 100644
+--- a/bl1/driver/include/lpddr4x.h
++++ b/bl1/driver/include/lpddr4x.h
+@@ -25,7 +25,7 @@
+     #define DDR_CFG_1600          0
+ #else
+     #define DDR_CFG_800           0
+-    #define DDR_CFG_2666          1
++    #define DDR_CFG_2666          0
+     #define DDR_CFG_1800          0
+     #define DDR_CFG_2000          0
+     #define DDR_CFG_2400          0
+@@ -35,7 +35,7 @@
+     #define DDR_CFG_2133          0
+     #define DDR_CFG_1600          0
+     #define DDR_CFG_3200          0
+-    #define DDR_CFG_3733          0
++    #define DDR_CFG_3733          1
+     #define DDR_CFG_4266          0
+     #define DDR_CFG_DFS           0
+ #endif
+@@ -54,10 +54,10 @@
+     #define DDR_LPDDR4_DUAL_RANK_2G   0
+     #define DDR_LPDDR4_DUAL_RANK_4G   0
+     #define DDR_LPDDR4X_SINGLE_RANK_1G   0
+-    #define DDR_LPDDR4X_SINGLE_RANK_2G   0
++    #define DDR_LPDDR4X_SINGLE_RANK_2G   1
+     #define DDR_LPDDR4X_DUAL_RANK_1G   0
+     #define DDR_LPDDR4X_DUAL_RANK_2G   0
+-    #define DDR_LPDDR4X_DUAL_RANK_4G   1
++    #define DDR_LPDDR4X_DUAL_RANK_4G   0
+ #endif
+ 
+ int ddr_init(void);
+diff --git a/uboot/u-boot-2020.04/arch/arm/mach-axera/ax620/ax620.c b/uboot/u-boot-2020.04/arch/arm/mach-axera/ax620/ax620.c
+index 04fbcb2b..dfd32119 100644
+--- a/uboot/u-boot-2020.04/arch/arm/mach-axera/ax620/ax620.c
++++ b/uboot/u-boot-2020.04/arch/arm/mach-axera/ax620/ax620.c
+@@ -189,6 +189,13 @@ static void i2c0_select(void)
+ 	env_set("bootargs", bootargs);
+ }
+ 
++static void spi1m_select(void)
++{
++	u32 val = readl(I2C0_SEL);
++	val |= 0x8;
++	writel(val, I2C0_SEL);
++}
++
+ static void config_spi_contrller(void)
+ {
+ 	u32 val;
+@@ -390,6 +397,7 @@ normal:
+ 	rewrite_cmdline();
+ 	i2c0_select();
+ 	config_spi_contrller();
++	spi1m_select();
+ 
+ 	return 0;
+ }
+diff --git a/uboot/u-boot-2020.04/board/axera/ax620_demo/pinmux_demo.h b/uboot/u-boot-2020.04/board/axera/ax620_demo/pinmux_demo.h
+index 07e8eaa0..f47404a7 100644
+--- a/uboot/u-boot-2020.04/board/axera/ax620_demo/pinmux_demo.h
++++ b/uboot/u-boot-2020.04/board/axera/ax620_demo/pinmux_demo.h
+@@ -1,5 +1,5 @@
+-0x1002020C, 0x00060094,  /* PadName = I2C10_SDA            Fuction = GPIO1_B4 */
+-0x10020218, 0x00060094,  /* PadName = I2C10_SCK            Fuction = GPIO1_B5 */
++0x1002020C, 0x00060094,  /* PadName = I2C10_SDA            Fuction = GPIO1_A12 */
++0x10020218, 0x00060094,  /* PadName = I2C10_SCK            Fuction = GPIO1_A13 */
+ 0x10020224, 0x00000094,  /* PadName = MCK_0                Fuction = MCK0 */
+ 0x10020230, 0x00000094,  /* PadName = MCK_1                Fuction = MCK1 */
+ 0x1002023C, 0x00000094,  /* PadName = MCK_2                Fuction = MCK2 */
+@@ -15,66 +15,66 @@
+ 0x10020078, 0x00000096,  /* PadName = EMMC_DAT7            Fuction = EMMC_DAT7 */
+ 0x10020084, 0x00000054,  /* PadName = EMMC_DS              Fuction = EMMC_DS */
+ 0x10020090, 0x00000094,  /* PadName = EMMC_RESET_N         Fuction = EMMC_RESET_N */
+-0x049BC00C, 0x00000014,  /* PadName = BOT_GPIO_0           Fuction = BOT_GPIO_0 */
+-0x049BC018, 0x00000014,  /* PadName = BOT_GPIO_1           Fuction = BOT_GPIO_1 */
+-0x049BC024, 0x00000014,  /* PadName = BOT_GPIO_2           Fuction = BOT_GPIO_2 */
+-0x049BC030, 0x00000014,  /* PadName = BOT_GPIO_3           Fuction = BOT_GPIO_3 */
+-0x049BC03C, 0x00000014,  /* PadName = BOT_GPIO_4           Fuction = BOT_GPIO_4 */
+-0x049BC048, 0x00000014,  /* PadName = BOT_GPIO_5           Fuction = BOT_GPIO_5 */
+-0x049BC054, 0x00000014,  /* PadName = BOT_GPIO_6           Fuction = BOT_GPIO_6 */
+-0x049BC060, 0x00000014,  /* PadName = BOT_GPIO_7           Fuction = BOT_GPIO_7 */
+-0x049BC06C, 0x00060014,  /* PadName = USB_ID               Fuction = GPIO0_D7 */
++0x049BC00C, 0x00000014,  /* PadName = BOT_GPIO_0           Fuction = GPIO2_A16_m */
++0x049BC018, 0x00000014,  /* PadName = BOT_GPIO_1           Fuction = GPIO2_A17_m */
++0x049BC024, 0x00000014,  /* PadName = BOT_GPIO_2           Fuction = GPIO2_A18_m */
++0x049BC030, 0x00000014,  /* PadName = BOT_GPIO_3           Fuction = GPIO2_A19_m */
++0x049BC03C, 0x00000014,  /* PadName = BOT_GPIO_4           Fuction = GPIO2_A20_m */
++0x049BC048, 0x00000014,  /* PadName = BOT_GPIO_5           Fuction = GPIO2_A21_m */
++0x049BC054, 0x00000014,  /* PadName = BOT_GPIO_6           Fuction = GPIO2_A22_m */
++0x049BC060, 0x00000014,  /* PadName = BOT_GPIO_7           Fuction = GPIO2_A23_m */
++0x049BC06C, 0x00060014,  /* PadName = USB_ID               Fuction = GPIO0_A31 */
+ 0x049BC078, 0x00000014,  /* PadName = SDIO_POWER_EN        Fuction = SDIO_POWER_EN */
+ 0x049BC084, 0x00000094,  /* PadName = SDIO_CARD_DETECT_N   Fuction = SDIO_CARD_DETECT_N */
+ 0x049BC090, 0x00000014,  /* PadName = SDIO_POWER_SW        Fuction = SDIO_POWER_SW */
+-0x049BC09C, 0x00010094,  /* PadName = I2C0_SCL             Fuction = I2C0_SCL */
+-0x049BC0A8, 0x00010094,  /* PadName = I2C0_SDA             Fuction = I2C0_SDA */
+-0x049BC0B4, 0x00000094,  /* PadName = I2C1_SCL             Fuction = I2C1_SCL */
+-0x049BC0C0, 0x00000094,  /* PadName = I2C1_SDA             Fuction = I2C1_SDA */
+-0x049BC0CC, 0x00000094,  /* PadName = I2C2_SCL             Fuction = I2C2_SCL */
+-0x049BC0D8, 0x00000094,  /* PadName = I2C2_SDA             Fuction = I2C2_SDA */
+-0x049BC0E4, 0x00000094,  /* PadName = I2C3_SCL             Fuction = I2C3_SCL */
+-0x049BC0F0, 0x00000094,  /* PadName = I2C3_SDA             Fuction = I2C3_SDA */
+-0x049BC0FC, 0x00030014,  /* PadName = I2C4_SCL             Fuction = PWM3 */
+-0x049BC108, 0x00030014,  /* PadName = I2C4_SDA             Fuction = PWM4 */
+-0x049BC114, 0x00060014,  /* PadName = FLASH_EN             Fuction = GPIO0_D1 */
+-0x049BC120, 0x00060014,  /* PadName = PWM_2                Fuction = GPIO0_D2 */
+-0x049BC20C, 0x00000054,  /* PadName = SPI3_CLK             Fuction = SPI3_CLK */
+-0x049BC218, 0x00000094,  /* PadName = SPI3_CS              Fuction = SPI3_CS */
+-0x049BC224, 0x00000014,  /* PadName = SPI3_MISO            Fuction = SPI3_MISO */
+-0x049BC230, 0x00000014,  /* PadName = SPI3_MOSI            Fuction = SPI3_MOSI */
+-0x049BC23C, 0x00000054,  /* PadName = SPI2_CLK             Fuction = SPI2_CLK */
+-0x049BC248, 0x00000094,  /* PadName = SPI2_CS              Fuction = SPI2_CS */
+-0x049BC254, 0x00000014,  /* PadName = SPI2_MISO            Fuction = SPI2_MISO */
+-0x049BC260, 0x00000014,  /* PadName = SPI2_MOSI            Fuction = SPI2_MOSI */
++0x049BC09C, 0x00000094,  /* PadName = I2C0_SCL             Fuction = UART1_TXD */
++0x049BC0A8, 0x00000094,  /* PadName = I2C0_SDA             Fuction = UART1_RXD */
++0x049BC0B4, 0x00000094,  /* PadName = I2C1_SCL             Fuction = I2C0_SCL_m */
++0x049BC0C0, 0x00000094,  /* PadName = I2C1_SDA             Fuction = I2C0_SDA_m */
++0x049BC0CC, 0x00000094,  /* PadName = I2C2_SCL             Fuction = I2C1_SCL */
++0x049BC0D8, 0x00000094,  /* PadName = I2C2_SDA             Fuction = I2C1_SDA */
++0x049BC0E4, 0x00000094,  /* PadName = I2C3_SCL             Fuction = I2C_HS2_SCL */
++0x049BC0F0, 0x00000094,  /* PadName = I2C3_SDA             Fuction = I2C_HS2_SDA */
++0x049BC0FC, 0x00000014,  /* PadName = I2C4_SCL             Fuction = I2C_HS3_SCL */
++0x049BC108, 0x00000014,  /* PadName = I2C4_SDA             Fuction = I2C_HS3_SDA */
++0x049BC114, 0x00060014,  /* PadName = FLASH_EN             Fuction = GPIO0_A25 */
++0x049BC120, 0x00060014,  /* PadName = PWM_2                Fuction = GPIO0_A26 */
++0x049BC20C, 0x00000054,  /* PadName = SPI3_CLK             Fuction = SPI1_CLK_m */
++0x049BC218, 0x00000094,  /* PadName = SPI3_CS              Fuction = SPI1_CS_m */
++0x049BC224, 0x00000014,  /* PadName = SPI3_MISO            Fuction = SPI1_MISO_m */
++0x049BC230, 0x00000014,  /* PadName = SPI3_MOSI            Fuction = SPI1_MOSI_m */
++0x049BC23C, 0x00060054,  /* PadName = SPI2_CLK             Fuction = GPIO2_A4 */
++0x049BC248, 0x00060094,  /* PadName = SPI2_CS              Fuction = GPIO2_A5 */
++0x049BC254, 0x00060014,  /* PadName = SPI2_MISO            Fuction = GPIO2_A6 */
++0x049BC260, 0x00060014,  /* PadName = SPI2_MOSI            Fuction = GPIO2_A7 */
+ 0x049BC26C, 0x00000014,  /* PadName = IIS2_MCLK            Fuction = IIS2_MCLK */
+ 0x049BC278, 0x00000014,  /* PadName = IIS2_SCLK            Fuction = IIS2_SCLK */
+ 0x049BC284, 0x00000014,  /* PadName = IIS2_LRCK            Fuction = IIS2_LRCK */
+ 0x049BC290, 0x00000014,  /* PadName = IIS2_DOUT            Fuction = IIS2_DOUT */
+ 0x049BC29C, 0x00000014,  /* PadName = IIS2_DIN0            Fuction = IIS2_DIN0 */
+ 0x049BC2A8, 0x00000014,  /* PadName = IIS2_DIN1            Fuction = IIS2_DIN1 */
+-0x049BC2B4, 0x00000094,  /* PadName = I2C8_SCL             Fuction = I2C8_SCL */
+-0x049BC2C0, 0x00000094,  /* PadName = I2C8_SDA             Fuction = I2C8_SDA */
+-0x049BC40C, 0x00000094,  /* PadName = I2C9_SCL             Fuction = I2C9_SCL */
+-0x049BC418, 0x00000094,  /* PadName = I2C9_SDA             Fuction = I2C9_SDA */
+-0x049BC424, 0x00020014,  /* PadName = PWM_0                Fuction = USB_POWER_EN */
++0x049BC2B4, 0x00060094,  /* PadName = I2C8_SCL             Fuction = GPIO2_A14 */
++0x049BC2C0, 0x00060094,  /* PadName = I2C8_SDA             Fuction = GPIO2_A15 */
++0x049BC40C, 0x00000094,  /* PadName = I2C9_SCL             Fuction = I2C_HS1_SCL */
++0x049BC418, 0x00000094,  /* PadName = I2C9_SDA             Fuction = I2C_HS1_SDA */
++0x049BC424, 0x00000014,  /* PadName = PWM_0                Fuction = PWM0 */
+ 0x049BC430, 0x00020014,  /* PadName = PWM_1                Fuction = USB_OVRCUR */
+ 0x049BC43C, 0x00000094,  /* PadName = RGMII_MDCK           Fuction = RGMII_MDCK */
+ 0x049BC448, 0x00000094,  /* PadName = RGMII_MDIO           Fuction = RGMII_MDIO */
+-0x049BC454, 0x00060014,  /* PadName = EPHY_RSTN            Fuction = GPIO2_D4 */
++0x049BC454, 0x00060014,  /* PadName = EPHY_RSTN            Fuction = GPIO2_A28 */
+ 0x049BC460, 0x00000018,  /* PadName = EPHY_CLK             Fuction = EPHY_CLK */
+-0x049BC60C, 0x00060096,  /* PadName = SD_DAT3              Fuction = GPIO0_A5 */
+-0x049BC618, 0x00060096,  /* PadName = SD_DAT2              Fuction = GPIO0_A4 */
+-0x049BC624, 0x00000016,  /* PadName = SD_CLK               Fuction = SD_CLK */
+-0x049BC630, 0x00060096,  /* PadName = SD_CMD               Fuction = GPIO0_A1 */
+-0x049BC63C, 0x00060096,  /* PadName = SD_DAT1              Fuction = GPIO0_A3 */
+-0x049BC648, 0x00060096,  /* PadName = SD_DAT0              Fuction = GPIO0_A2 */
+-0x049BC80C, 0x00060094,  /* PadName = SDIO_DAT3            Fuction = GPIO0_A14 */
+-0x049BC818, 0x00040094,  /* PadName = SDIO_DAT2            Fuction = IIS1_DIN0 */
+-0x049BC824, 0x00040014,  /* PadName = SDIO_CLK             Fuction = IIS1_MCLK */
+-0x049BC830, 0x00040094,  /* PadName = SDIO_CMD             Fuction = IIS1_SCLK */
+-0x049BC83C, 0x00040094,  /* PadName = SDIO_DAT1            Fuction = IIS1_DOUT */
+-0x049BC848, 0x00040094,  /* PadName = SDIO_DAT0            Fuction = IIS1_LRCK */
++0x049BC60C, 0x00000094,  /* PadName = SD_DAT3              Fuction = SD_DAT3 */
++0x049BC618, 0x00000094,  /* PadName = SD_DAT2              Fuction = SD_DAT2 */
++0x049BC624, 0x00000014,  /* PadName = SD_CLK               Fuction = SD_CLK */
++0x049BC630, 0x00000094,  /* PadName = SD_CMD               Fuction = SD_CMD */
++0x049BC63C, 0x00000094,  /* PadName = SD_DAT1              Fuction = SD_DAT1 */
++0x049BC648, 0x00000094,  /* PadName = SD_DAT0              Fuction = SD_DAT0 */
++0x049BC80C, 0x00000094,  /* PadName = SDIO_DAT3            Fuction = SDIO_DAT3 */
++0x049BC818, 0x00000094,  /* PadName = SDIO_DAT2            Fuction = SDIO_DAT2 */
++0x049BC824, 0x00000014,  /* PadName = SDIO_CLK             Fuction = SDIO_CLK */
++0x049BC830, 0x00000094,  /* PadName = SDIO_CMD             Fuction = SDIO_CMD */
++0x049BC83C, 0x00000094,  /* PadName = SDIO_DAT1            Fuction = SDIO_DAT1 */
++0x049BC848, 0x00000094,  /* PadName = SDIO_DAT0            Fuction = SDIO_DAT0 */
+ 0x049BC46C, 0x00000014,  /* PadName = RGMII_TXD3           Fuction = RGMII_TXD3 */
+ 0x049BC478, 0x00000014,  /* PadName = RGMII_TXD2           Fuction = RGMII_TXD2 */
+ 0x049BC484, 0x00000014,  /* PadName = RGMII_TXD1           Fuction = RGMII_TXD1 */
+@@ -94,4 +94,4 @@
+ 0x02260048, 0x00000014,  /* PadName = TCK                  Fuction = TCK */
+ 0x02260054, 0x00000014,  /* PadName = TMS                  Fuction = TMS */
+ 0x0226009C, 0x00000054,  /* PadName = SLEEPOUT             Fuction = SLEEPOUT */
+-0x022600A8, 0x00000054,  /* PadName = SYS_WAKEUP0          Fuction = SYS_WAKEUP0 */
++0x022600A8, 0x00000054,  /* PadName = SYS_WAKEUP0          Fuction = SYS_WAKEUP0 */
+\ No newline at end of file
+diff --git a/uboot/u-boot-2020.04/fs/fs.c b/uboot/u-boot-2020.04/fs/fs.c
+index 2b1d1d36..0c66d604 100644
+--- a/uboot/u-boot-2020.04/fs/fs.c
++++ b/uboot/u-boot-2020.04/fs/fs.c
+@@ -377,139 +377,6 @@ int fs_set_blk_dev(const char *ifname, const char *dev_part_str, int fstype)
+ 	return -1;
+ }
+ 
+-int fs_set_blk_dev_no_gpt(const char *ifname, const char *dev_part_str, int fstype)
+-{
+-	struct fstype_info *info;
+-	int part, i;
+-
+-	const char *part_str;
+-	char *ep;
+-
+-#ifdef CONFIG_NEEDS_MANUAL_RELOC
+-	static int relocated;
+-
+-	if (!relocated) {
+-		for (i = 0, info = fstypes; i < ARRAY_SIZE(fstypes);
+-				i++, info++) {
+-			info->name += gd->reloc_off;
+-			info->probe += gd->reloc_off;
+-			info->close += gd->reloc_off;
+-			info->ls += gd->reloc_off;
+-			info->read += gd->reloc_off;
+-			info->write += gd->reloc_off;
+-		}
+-		relocated = 1;
+-	}
+-#endif
+-
+-	part_str = strchr(dev_part_str, ':');
+-	if (part_str) {
+-		part_str++;
+-	}
+-
+-	/* Convert partition ID string to number */
+-	if (!part_str || !*part_str) {
+-		part = 1;
+-	} else if (!strcmp(part_str, "auto")) {
+-		part = 0;
+-	} else {
+-		/* Something specified -> use exactly that */
+-		part = (int)simple_strtoul(part_str, &ep, 16);
+-	}
+-
+-	blk_get_device_part_str(ifname, dev_part_str, &fs_dev_desc,
+-					&fs_partition, 1);
+-
+-	char part_name[32];
+-	ulong start = 0, size = 0;
+-	memset(part_name, 0, sizeof(part_name));
+-	char * bootargs = env_get("bootargs");
+-	if(NULL == bootargs) {
+-		printf("fs_set_blk_dev_no_gpt bootargs null, use default\n");
+-		bootargs = BOOTAGRS_EMMC;
+-	}
+-	else {
+-		printf("fs_set_blk_dev_no_gpt bootargs: %s\n", bootargs);
+-	}
+-
+-	if(NULL != bootargs) {
+-		char *mmc_parts,*repartion_flag;
+-		repartion_flag = env_get("repartion_flag");
+-		if(0 == memcmp((void *)repartion_flag, "1", 1)) {
+-			printf("fs_set_blk_dev_no_gpt repartion_flag: %s\n", repartion_flag);
+-			mmc_parts = env_get("partions");
+-			if(mmc_parts)
+-			{
+-				printf("fs_set_blk_dev_no_gpt mmc_parts: %s\n", mmc_parts);
+-				/* rewrite bootargs*/
+-				memcpy(strstr(bootargs , "blkdevparts"),mmc_parts,(strlen(strstr(bootargs , "blkdevparts")) > strlen(mmc_parts))?strlen(strstr(bootargs , "blkdevparts")):strlen(mmc_parts));
+-			}
+-		}
+-
+-		const char *next, *left, *right;
+-		char size_str[32];
+-		int part_index = 0, num;
+-
+-		next = strchr(bootargs, ':');
+-		next += 1;
+-		while (next && *next) {
+-			memset(size_str, 0, sizeof(size_str));
+-			left = strchr(next, '(');
+-			if(left) {
+-				strncpy(size_str, next, left - 1 - next);
+-				num = (int)simple_strtoul(size_str, &ep, 10);
+-
+-				if(left[-1] == 'K') {
+-					size = num*2;		//size = num*1024/512; //block size:512bytes
+-				}
+-				else if(left[-1] == 'M') {
+-					size = num*2*1024;		//size = num*1024*1024/512; //block size:512bytes
+-				}
+-
+-				part_index++;
+-				if(part_index == part) {
+-					right = strchr(left, ')');
+-					if(right) {
+-						strncpy(part_name, left + 1, right - left - 1);
+-					}
+-					break;
+-				}
+-
+-				start += size;
+-			}
+-
+-			next = strchr(next, ',');
+-			if(next) {
+-				next += 1;
+-			}
+-		}
+-
+-		fs_partition.start = start;
+-		fs_partition.size = size;
+-		fs_partition.blksz = 512;
+-		sprintf((char *)fs_partition.name, "%s", part_name);
+-		sprintf((char *)fs_partition.type, "%s", "ext4");
+-		fs_partition.bootable = 0;
+-	}
+-	printf("partition name: %s, type: %s, start: %lu, size: %lu, blksz: %lu\n", fs_partition.name, fs_partition.type, fs_partition.start, fs_partition.size, fs_partition.blksz);
+-	for (i = 0, info = fstypes; i < ARRAY_SIZE(fstypes); i++, info++) {
+-		if (fstype != FS_TYPE_ANY && info->fstype != FS_TYPE_ANY &&
+-				fstype != info->fstype)
+-			continue;
+-
+-		if (!fs_dev_desc && !info->null_dev_desc_ok)
+-			continue;
+-
+-		if (!info->probe(fs_dev_desc, &fs_partition)) {
+-			fs_type = info->fstype;
+-			fs_dev_part = part;
+-			return 0;
+-		}
+-	}
+-
+-	return -1;
+-}
+-
+ /* set current blk device w/ blk_desc + partition # */
+ int fs_set_blk_dev_with_part(struct blk_desc *desc, int part)
+ {
+@@ -813,13 +680,8 @@ int do_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
+ 	if (argc > 7)
+ 		return CMD_RET_USAGE;
+ 
+-	#ifdef USE_GPT_PARTITON
+ 	if (fs_set_blk_dev(argv[1], (argc >= 3) ? argv[2] : NULL, fstype))
+ 		return 1;
+-	#else
+-	if (fs_set_blk_dev_no_gpt(argv[1], (argc >= 3) ? argv[2] : NULL, fstype))
+-		return 1;
+-	#endif
+ 
+ 	if (argc >= 4) {
+ 		addr = simple_strtoul(argv[3], &ep, 16);
+@@ -882,13 +744,8 @@ int do_ls(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
+ 	if (argc > 4)
+ 		return CMD_RET_USAGE;
+ 
+-	#ifdef USE_GPT_PARTITON
+ 	if (fs_set_blk_dev(argv[1], (argc >= 3) ? argv[2] : NULL, fstype))
+ 		return 1;
+-	#else
+-	if (fs_set_blk_dev_no_gpt(argv[1], (argc >= 3) ? argv[2] : NULL, fstype))
+-		return 1;
+-	#endif
+ 
+ 	if (fs_ls(argc >= 4 ? argv[3] : "/"))
+ 		return 1;
+diff --git a/uboot/u-boot-2020.04/include/configs/ax620_common.h b/uboot/u-boot-2020.04/include/configs/ax620_common.h
+index 23d8c345..b5fe97d1 100644
+--- a/uboot/u-boot-2020.04/include/configs/ax620_common.h
++++ b/uboot/u-boot-2020.04/include/configs/ax620_common.h
+@@ -152,8 +152,8 @@
+ /* bootargs for eMMC */
+ #ifdef CONFIG_BOOT_OPTIMIZATION
+ #define BOOTAGRS_EMMC	"mem=1024M console=ttyS0,115200n8 earlyprintk=dw_uart,board_id=0,boot_reason=0x0,\
+-0x04992000 initcall_debug=0 loglevel=1 ax_boot_delay=10 vmalloc=768M root=/dev/mmcblk0p7 rootfstype=ext4 rw rootwait \
+-blkdevparts=mmcblk0:512K(spl),1536K(uboot),1M(env),1M(dtb),32M(kernel),5M(param),128M(rootfs),1024M(soc),5120M(opt)"
++0x04992000 initcall_debug=0 loglevel=1 ax_boot_delay=1 vmalloc=768M root=/dev/mmcblk0p9 rootfstype=ext4 rw rootwait \
++blkdevparts=mmcblk0:512K(spl),1536K(uboot),1M(env),1M(dtb),32M(kernel),5M(param),128M(soc),2048M(opt),1024M(rootfs)"
+ #else
+ #define BOOTAGRS_EMMC	"mem=1024M console=ttyS0,115200n8 earlyprintk=dw_uart,board_id=0,boot_reason=0x0,\
+ 0x04992000 initcall_debug=0 loglevel=5 vmalloc=768M root=/dev/mmcblk0p7 rootfstype=ext4 rw rootwait \
+@@ -164,7 +164,7 @@ root=/dev/mtdblock7 rw rootfstype=ubifs ubi.mtd=7,2048 root=ubi0:rootfs init=/li
+ mtdparts=spi4.0:1M(spl),1536K(uboot),768K(env),1M(kernel-dtb),5M(kernel),512K(param),240M(rootfs)"
+ 
+ /* bootargs for SD */
+-#define BOOTAGRS_SD "mem=1024M console=ttyS0,115200n8 earlyprintk=dw_uart, init=/sbin/init noinitrd root=179:26 rw rootdelay=3 rootfstype=ext4"
++#define BOOTAGRS_SD "mem=1536M initcall_debug=0 loglevel=0 ax_boot_delay=0 vmalloc=768M console=ttyS0,115200n8 earlyprintk=dw_uart, init=/sbin/init noinitrd root=/dev/mmcblk2p2 rw rootdelay=3 rootfstype=ext4"
+ 
+ /* bootargs for SPI NOR Flash */
+ #define MTDIDS_SPINOR		"nor0=spi4.0"
+diff --git a/uboot/u-boot-2020.04/scripts/config_whitelist.txt b/uboot/u-boot-2020.04/scripts/config_whitelist.txt
+index 3635130c..065d035c 100644
+--- a/uboot/u-boot-2020.04/scripts/config_whitelist.txt
++++ b/uboot/u-boot-2020.04/scripts/config_whitelist.txt
+@@ -1127,6 +1127,7 @@ CONFIG_MTD_NAND_MUSEUM_IDS
+ CONFIG_MTD_NAND_VERIFY_WRITE
+ CONFIG_MTD_ONENAND_VERIFY_WRITE
+ CONFIG_MTD_PARTITION
++CONFIG_MTD_SPI_NAND
+ CONFIG_MTD_UBI_BEB_RESERVE
+ CONFIG_MTD_UBI_BLOCK
+ CONFIG_MTD_UBI_DEBUG
+-- 
+2.25.1
+
