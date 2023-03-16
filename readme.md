@@ -1,6 +1,6 @@
 ## What is this?
 
-this is a ax620 linux bsp sdk form AX620_R1.22.2801_Sipeed. currently it is application layer open source.
+this is a ax620 linux bsp sdk form AX620_SDK_V0.31.0_P23_Sipeed. currently it is application layer open source.
 
 ```bash
 juwan@juwan-n85-dls:~/GIT_AX620_SDK_V0.31.0_P23/sipeed/axpi_bsp_sdk$ tree -L 1
