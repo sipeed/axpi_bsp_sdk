@@ -1,3 +1,7 @@
+## 声明
+
+**本仓库释放的内容用于和芯片原厂进行开源生态社区推广使用，已获得芯片原厂授权才释放。**
+
 ## What is this?
 
 this is a ax620 linux bsp sdk form AX620_SDK_V0.31.0_P23_Sipeed. currently it is application layer open source.
